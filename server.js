@@ -7,6 +7,18 @@ const app = express();
 
 app.use(express.json());
 
+const result=[];
+
+const passList=(current, length, result)=>{
+      if(current.length===length){
+            result.push(current);
+            return;
+        }
+     for(let i=0;i<10;i++){
+        passList(current+i,length,result);
+    } 
+}
+
 const localData = [
   { id: crypto.randomUUID(), name: "Alice" },
   { id: crypto.randomUUID(), name: "Bob" },
@@ -34,8 +46,16 @@ const writeData = (data, callback) => {
 };
 //get method
 app.get("/todo", (req, res) => {
-  console.log("code");
-  res.status(200).json(localData);
+  const length=req.body.len || 4;
+  result.length=0;
+try{
+    passList("", length, result);
+    res.status(200).json(result.length);
+}catch{
+    res.status(500).json(localData);
+}
+    
+  
 });
 
 //post method
@@ -45,54 +65,101 @@ app.post("/post", (req, res) => {
   res.status(200).json(localData);
 });
 
+//get method to retrieve data
+
+app.get('/retrieve', (req, res)=>{
+  dataIs((err, data)=>{
+    if(err){
+      return res.status(500).json({error:"Internal server error"})
+    }
+    return res.status(200).json(data);
+  })
+})
+
 // POST method to add new data
 app.post("/posts", (req, res) => {
   const newData = { ...req.body };
   console.log("newData ", newData);
-  
+
   dataIs((err, data) => {
     if (err) {
-      console.error('Error reading data:', err);
-      return res.status(500).json({ error: 'Internal server error' });
+      console.error("Error reading data:", err);
+      return res.status(500).json({ error: "Internal server error" });
     }
-    
-    data.push(newData);
+
+    const findIndex = data.findIndex(
+      (item) => parseInt(item.id) === newData.id
+    );
+    if (findIndex === -1) {
+      data.push(newData);
+    }
 
     writeData(data, (err) => {
       if (err) {
-        console.error('Error writing data:', err);
-        return res.status(500).json({ error: 'Internal server error' });
+        console.error("Error writing data:", err);
+        return res.status(500).json({ error: "Internal server error" });
       }
       res.status(201).json(data);
     });
   });
 });
 
+//patch method to update data
+
+app.put('/updates',(req, res)=>{
+  console.log(req.body)
+  const id=req.body.id;
+console.log(id)
+  if (!id) {
+    return res.status(400).json({ error: "ID is required" });
+  }
+  dataIs((err, data)=>{
+    if(err){
+      return res.status(400).json({error:"Internal server error"});
+    }
+    let newData=data.map((val, ind)=>{
+      if(val.id===id){
+        return {...val, name:req.body.name};
+      }else{
+        return val;
+      }
+    });
+   writeData(newData, (err)=>{
+    if(err){
+      res.status(400).json({error:"internal server error"})
+    }
+    res.status(200).json(newData);
+   })
+
+
+  })
+})
+
 // DELETE method to remove data by id
-app.delete('/deletes', (req, res) => {
+app.delete("/deletes", (req, res) => {
   const id = req.body.id;
   console.log("ID to delete: ", id);
 
   if (!id) {
-    return res.status(400).json({ error: 'ID is required' });
+    return res.status(400).json({ error: "ID is required" });
   }
 
   dataIs((err, data) => {
     if (err) {
-      console.error('Error reading data:', err);
-      return res.status(500).json({ error: 'Internal server error' });
+      console.error("Error reading data:", err);
+      return res.status(500).json({ error: "Internal server error" });
     }
-    const index=data.findIndex(item=>parseInt(item.id)===id);
-    
-    if (index===-1) {
-      return res.status(404).json({ error: 'ID not found' });
+    const index = data.findIndex((item) => parseInt(item.id) === id);
+
+    if (index === -1) {
+      return res.status(404).json({ error: "ID not found" });
     }
-    data.splice(index, 1)
+    data.splice(index, 1);
     writeData(data, (err) => {
-      console.log(data)
+      console.log(data);
       if (err) {
-        console.error('Error writing data:', err);
-        return res.status(500).json({ error: 'Internal server error' });
+        console.error("Error writing data:", err);
+        return res.status(500).json({ error: "Internal server error" });
       }
       res.status(200).json(data);
     });
